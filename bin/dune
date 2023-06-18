@@ -1,0 +1,4 @@
+(executable
+ (public_name owl)
+ (name main)
+ (libraries base owl stdint unix))
