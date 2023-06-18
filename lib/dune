@@ -1,2 +1,3 @@
 (library
- (name owl))
+ (name owl)
+ (libraries base stdint unix))

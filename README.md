@@ -27,9 +27,8 @@ location information with instruction addresses, etc.
 
 ## TODO ##
 
- - Move the bulk of the code from the binary to the library
- - Add tests and setup CI
  - Add code to parse section and program headers
+ - Add tests and setup CI
 
 
 ## Acknowledgements ##

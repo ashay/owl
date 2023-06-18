@@ -1,10 +1,8 @@
-let run_pipeline () =
-  let open Base.Result.Monad_infix in
-  Ofile.read_elf "/tmp/x.o" >>= fun buffer ->
-  Ofile.parse_elf_info buffer >>= fun elf_info ->
-  Ofile.parse_elf_header elf_info buffer >>= fun elf_header -> Ok elf_header
-
 let () =
-  match run_pipeline () with
-  | Ok _ -> Printf.printf "success\n"
-  | Error msg -> Printf.printf "error: %s\n" msg
+  if Array.length Sys.argv <> 2 then Printf.printf "USAGE: owl elf-file\n"
+  else
+    match Owl.Ofile.new_file Sys.argv.(1) with
+    | Ok _ -> Printf.printf "success\n"
+    | Error msg ->
+        Printf.printf "error: %s\n" msg;
+        exit 1
