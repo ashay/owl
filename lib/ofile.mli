@@ -1,11 +1,9 @@
 type elf_class_ty = ELFCLASS32 | ELFCLASS64
-
 type byte_order_ty = LITTLE_ENDIAN | BIG_ENDIAN
-
-type elf_version_ty = ELF_VERSION_CURRENT
+type elf_version_ty = EV_CURRENT
 
 type elf_os_abi_ty =
-    ELFOSABI_NONE
+  | ELFOSABI_NONE
   | ELFOSABI_HPUX
   | ELFOSABI_NETBSD
   | ELFOSABI_LINUX
@@ -26,10 +24,10 @@ type elf_os_abi_ty =
   | ELFOSABI_ARM
   | ELFOSABI_STANDALONE
 
-type elf_type_ty = REL | EXEC | DYN | CORE | LOOS | HIOS | LOPROC | HIPROC
+type elf_type_ty = ET_REL | ET_EXEC | ET_DYN | ET_CORE | ET_OS | ET_PROC
 
 type machine_ty =
-    EM_NONE
+  | EM_NONE
   | EM_M32
   | EM_SPARC
   | EM_386
@@ -224,20 +222,16 @@ type elf_info_ty = {
 }
 
 val os_abi_ty_to_string : elf_os_abi_ty -> string
-
 val elf_type_ty_to_string : elf_type_ty -> string
-
 val parse_elf_info : Obuffer.buffer_ty -> (elf_info_ty, string) result
 
 type elf_header_ty = {
   elf_type : elf_type_ty;
   machine : machine_ty;
+  elf_version : elf_version_ty;
   entry_point : Stdint.uint64;
   phdr_offset : Stdint.uint64;
   shdr_offset : Stdint.uint64;
 }
 
-val parse_elf_header :
-  elf_info_ty -> Obuffer.buffer_ty -> (elf_header_ty, string) result
-
-val read_elf : string -> (Obuffer.buffer_ty, string) result
+val new_file : string -> (elf_header_ty, string) result

@@ -1,6 +1,6 @@
 type elf_class_ty = ELFCLASS32 | ELFCLASS64
 type byte_order_ty = LITTLE_ENDIAN | BIG_ENDIAN
-type elf_version_ty = ELF_VERSION_CURRENT
+type elf_version_ty = EV_CURRENT
 
 type elf_os_abi_ty =
   | ELFOSABI_NONE (* UNIX System V ABI *)
@@ -56,25 +56,21 @@ type elf_info_ty = {
 }
 
 type elf_type_ty =
-  | REL (* Relocatable *)
-  | EXEC (* Executable *)
-  | DYN (* Shared object *)
-  | CORE (* Core file *)
-  | LOOS (* First operating system specific *)
-  | HIOS (* Last operating system-specific *)
-  | LOPROC (* First processor-specific *)
-  | HIPROC (* Last processor-specific *)
+  | ET_REL (* Relocatable *)
+  | ET_EXEC (* Executable *)
+  | ET_DYN (* Shared object *)
+  | ET_CORE (* Core file *)
+  | ET_OS (* Operating system specific *)
+  | ET_PROC (* Processor-specific *)
 
 let elf_type_ty_to_string elf_type =
   match elf_type with
-  | REL -> "Relocatable"
-  | EXEC -> "Executable"
-  | DYN -> "Shared object"
-  | CORE -> "Core file"
-  | LOOS -> "First operating system specific"
-  | HIOS -> "Last operating system-specific"
-  | LOPROC -> "First processor-specific"
-  | HIPROC -> "Last processor-specific"
+  | ET_REL -> "Relocatable"
+  | ET_EXEC -> "Executable"
+  | ET_DYN -> "Shared object"
+  | ET_CORE -> "Core file"
+  | ET_OS -> "Operating system specific"
+  | ET_PROC -> "Processor-specific"
 
 type machine_ty =
   | EM_NONE (* Unknown machine *)
@@ -274,6 +270,7 @@ let parse_elf_class buffer =
   match Stdint.Uint8.to_int value with
   | 1 -> Ok ELFCLASS32
   | 2 -> Ok ELFCLASS64
+  | 0 -> Error (Printf.sprintf "invalid ELF class: ELFCLASSNONE")
   | x -> Error (Printf.sprintf "unknown ELF class: %02x" x)
 
 let parse_byte_order buffer =
@@ -282,13 +279,15 @@ let parse_byte_order buffer =
   match Stdint.Uint8.to_int value with
   | 1 -> Ok LITTLE_ENDIAN
   | 2 -> Ok BIG_ENDIAN
+  | 0 -> Error (Printf.sprintf "invalid ELF data encoding: ELFDATANONE")
   | x -> Error (Printf.sprintf "unknown ELF data encoding: %02x" x)
 
-let parse_elf_version buffer =
+let parse_elf_version_in_identifier buffer =
   let open Base.Result.Monad_infix in
   Obuffer.PlatformAgnosticReader.u8 buffer >>= fun value ->
   match Stdint.Uint8.to_int value with
-  | 1 -> Ok ELF_VERSION_CURRENT
+  | 1 -> Ok EV_CURRENT
+  | 0 -> Error (Printf.sprintf "invalid ELF version: EV_NONE")
   | x -> Error (Printf.sprintf "unknown ELF version: %02x" x)
 
 let parse_elf_os_abi buffer =
@@ -321,7 +320,7 @@ let parse_elf_info buffer =
   let open Base.Result.Monad_infix in
   parse_elf_class buffer >>= fun elf_class ->
   parse_byte_order buffer >>= fun byte_order ->
-  parse_elf_version buffer >>= fun elf_version ->
+  parse_elf_version_in_identifier buffer >>= fun elf_version ->
   parse_elf_os_abi buffer >>= fun os_abi ->
   Obuffer.PlatformAgnosticReader.u8 buffer >>= fun os_abi_version ->
   Ok { elf_class; byte_order; elf_version; os_abi; os_abi_version }
@@ -331,15 +330,15 @@ let parse_elf_type reader_module buffer =
   let module M = (val reader_module : Obuffer.Reader) in
   M.u16 buffer >>= fun value ->
   match Stdint.Uint16.to_int value with
-  | 1 -> Ok REL
-  | 2 -> Ok EXEC
-  | 3 -> Ok DYN
-  | 4 -> Ok CORE
-  | 0xfe00 -> Ok LOOS
-  | 0xfeff -> Ok HIOS
-  | 0xff00 -> Ok LOPROC
-  | 0xffff -> Ok HIPROC
-  | x -> Error (Printf.sprintf "unknown ELF type: %04x" x)
+  | 1 -> Ok ET_REL
+  | 2 -> Ok ET_EXEC
+  | 3 -> Ok ET_DYN
+  | 4 -> Ok ET_CORE
+  | 0 -> Error (Printf.sprintf "invalid ELF type: ET_NONE")
+  | x ->
+      if x >= 0xfe00 && x <= 0xfeff then Ok ET_OS
+      else if x >= 0xff00 && x <= 0xffff then Ok ET_PROC
+      else Error (Printf.sprintf "unknown ELF type: %04x" x)
 
 let parse_machine reader_module buffer =
   let open Base.Result.Monad_infix in
@@ -533,6 +532,15 @@ let parse_machine reader_module buffer =
   | 0x9026 -> Ok EM_ALPHA
   | x -> Error (Printf.sprintf "unknown machine type: %04x" x)
 
+let parse_elf_version reader_module buffer =
+  let open Base.Result.Monad_infix in
+  let module M = (val reader_module : Obuffer.Reader) in
+  M.u32 buffer >>= fun value ->
+  match Stdint.Uint32.to_int value with
+  | 1 -> Ok EV_CURRENT
+  | 0 -> Error (Printf.sprintf "invalid ELF version: EV_NONE")
+  | x -> Error (Printf.sprintf "unknown ELF version: %02x" x)
+
 let parse_header_field reader_module elf_class buffer =
   let module M = (val reader_module : Obuffer.Reader) in
   match elf_class with
@@ -542,6 +550,7 @@ let parse_header_field reader_module elf_class buffer =
 type elf_header_ty = {
   elf_type : elf_type_ty;
   machine : machine_ty;
+  elf_version : elf_version_ty;
   (* The follow three fields are 32-bits long for ELFCLASS32 and 64-bits long
      for ELFCLASS64, but for simplicity, we cast the values to 64 bits *)
   entry_point : Stdint.uint64;
@@ -565,10 +574,13 @@ let parse_elf_header elf_info buffer =
   let open Base.Result.Monad_infix in
   parse_elf_type reader buffer >>= fun elf_type ->
   parse_machine reader buffer >>= fun machine ->
+  parse_elf_version reader buffer >>= fun elf_version ->
   parse_header_field reader elf_info.elf_class buffer >>= fun entry_point ->
   parse_header_field reader elf_info.elf_class buffer >>= fun phdr_offset ->
   parse_header_field reader elf_info.elf_class buffer >>= fun shdr_offset ->
-  Ok { elf_type; machine; entry_point; phdr_offset; shdr_offset }
+  if elf_version = elf_info.elf_version then
+    Ok { elf_type; machine; elf_version; entry_point; phdr_offset; shdr_offset }
+  else Error "ELF version mismatch"
 
 let validate_magic_number buffer =
   let open Base.Result.Monad_infix in
@@ -593,3 +605,9 @@ let read_elf path =
   with Unix.Unix_error (err_code, fn_name, arg) ->
     let err_description = Unix.error_message err_code in
     Error (Printf.sprintf "%s: %s %s" fn_name arg err_description)
+
+let new_file filepath =
+  let open Base.Result.Monad_infix in
+  read_elf filepath >>= fun buffer ->
+  parse_elf_info buffer >>= fun elf_info ->
+  parse_elf_header elf_info buffer >>= fun elf_header -> Ok elf_header
