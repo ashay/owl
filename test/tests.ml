@@ -79,9 +79,7 @@ let yaml_files dir =
   let check_extension filename =
     match Filename.extension filename with
     (* Add directory name so that the returned filenames are well-formed *)
-    | ".yaml" ->
-        if Str.last_chars dir 1 = "/" then Some (dir ^ filename)
-        else Some (dir ^ "/" ^ filename)
+    | ".yaml" -> Some (dir ^ "/" ^ filename)
     | _ -> None
   in
   Sys.readdir dir |> Array.to_list |> List.filter_map check_extension
@@ -93,7 +91,7 @@ let run_tests test_fn elf_spec_dir =
   (total, total - succ)
 
 let () =
-  Printf.printf "\nRunning positive tests ...\n";
+  Printf.printf "Running positive tests ...\n";
   let ptotal, pfail =
     run_tests test_positive_elf_spec "test-files/valid-elf-descriptions"
   in

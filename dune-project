@@ -11,11 +11,11 @@
 
 (maintainers "Ashay Rane")
 
-(license LICENSE)
+(license CC0-1.0)
 
 (package
  (name owl)
  (synopsis "An ELF parser in OCaml")
- (depends ocaml dune)
+ (depends ocaml base dune stdint)
  (tags
   (topics elf dwarf owl)))

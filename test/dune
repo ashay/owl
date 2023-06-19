@@ -4,4 +4,4 @@
   test-files/elfc.py
   (glob_files test-files/valid-elf-descriptions/*.yaml)
   (glob_files test-files/invalid-elf-descriptions/*.yaml))
- (libraries base owl Str))
+ (libraries base owl))

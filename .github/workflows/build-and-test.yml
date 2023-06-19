@@ -1,0 +1,31 @@
+name: Build and Test
+
+on: [ push, workflow_dispatch ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.7
+
+    - name: Setup OCaml
+      uses: ocaml/setup-ocaml@v2
+      with:
+        ocaml-compiler: 5.0
+
+    - name: Install Prerequisites
+      run: |
+        python3 -m pip install --user -r test/test-files/requirements.txt
+        opam install . --deps-only --with-test
+
+    - name: Build and Test
+      run: |
+        opam exec -- dune build
+        opam exec -- dune runtest --no-buffer --display=quiet

@@ -9,7 +9,9 @@ homepage: "https://github.com/ashay/owl"
 bug-reports: "https://github.com/ashay/owl/issues"
 depends: [
   "ocaml"
+  "base"
   "dune" {>= "3.7"}
+  "stdint"
   "odoc" {with-doc}
 ]
 build: [
