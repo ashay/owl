@@ -1,0 +1,2 @@
+ehdr: !Ehdr
+  e_type: ET_NONE

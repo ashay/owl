@@ -1,0 +1,5 @@
+ehdr: !Ehdr
+  e_ident: !Ident
+    ei_version: EV_NONE
+  e_type: ET_REL
+  e_version: EV_CURRENT

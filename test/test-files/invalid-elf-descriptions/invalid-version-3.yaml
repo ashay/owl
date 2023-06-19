@@ -1,0 +1,3 @@
+ehdr: !Ehdr
+  e_type: ET_REL
+  e_version: 2

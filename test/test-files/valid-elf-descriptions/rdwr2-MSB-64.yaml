@@ -1,0 +1,21 @@
+ehdr: !Ehdr
+  e_ident: !Ident
+    ei_class: ELFCLASS64
+    ei_data:  ELFDATA2MSB
+  e_type: ET_REL
+
+sections:
+ - !Section
+   sh_type: SHT_NULL
+ - !Section
+   sh_type: SHT_PROGBITS
+   sh_name: .progbits
+   sh_data:
+   - hello world
+   - goodbye world
+ - !Section
+   sh_type: SHT_STRTAB
+   sh_name: .shstrtab
+   sh_data:
+   - .shstrtab
+   - .progbits

@@ -1,0 +1,13 @@
+ehdr: !Ehdr
+  e_ident: !Ident
+    ei_data: ELFDATA2LSB
+    ei_osabi: ELFOSABI_FREEBSD
+    ei_abiversion: 1
+    ei_class: ELFCLASS64
+  e_type: ET_REL
+  e_machine: EM_NONE
+  e_version: EV_CURRENT
+  e_flags: [2, 1]
+  e_entry: 0xdeadbeef
+  e_phoff: 0
+  e_shoff: 0

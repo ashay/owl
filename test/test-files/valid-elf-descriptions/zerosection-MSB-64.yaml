@@ -1,0 +1,21 @@
+ehdr: !Ehdr
+  e_ident: !Ident
+    ei_class: ELFCLASS64
+    ei_data:  ELFDATA2MSB
+  e_type: ET_REL
+
+sections:
+ - !Section # index 0
+   sh_type: SHT_NULL
+
+ - !Section
+   sh_name: .shstrtab
+   sh_type: SHT_STRTAB
+   sh_data:
+   - .shstrtab
+   - .zerosection
+
+ - !Section
+   sh_name: .zerosection
+   sh_offset: 2048
+   sh_type: SHT_NOBITS

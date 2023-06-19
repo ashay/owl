@@ -28,18 +28,22 @@ location information with instruction addresses, etc.
 ## TODO ##
 
  - Add code to parse section and program headers
- - Add tests and setup CI
+ - Setup CI to run test suite
 
 
 ## Acknowledgements ##
 
- - [let-def/owee](https://github.com/let-def/owee): Owee is an excellent library
- with identical goals, but Owee has limited support for DWARF5.
+ - [let-def/owee](https://github.com/let-def/owee): Owee is an excellent
+   library with identical goals, but Owee has limited support for DWARF5.
 
  - [golang/go](https://github.com/golang/go): I am using the
- [ELF](https://github.com/golang/go/tree/master/src/debug/elf) and
- [DWARF](https://github.com/golang/go/tree/master/src/debug/dwarf) code as the
- reference implementation for my project.
+   [ELF](https://github.com/golang/go/tree/master/src/debug/elf) and
+   [DWARF](https://github.com/golang/go/tree/master/src/debug/dwarf) code as
+   the reference implementation for my project.
+
+ - [elftoolchain](https://elftoolchain.sourceforge.net): The ELF Toolchain
+   project contains a handy elfc script, which generates binary ELF files based
+   on a YAML description.
 
 
 ## LICENSE ##
