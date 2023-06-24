@@ -214,16 +214,12 @@ type machine_ty =
   | EM_ALPHA
 
 type elf_info_ty = {
-  elf_class : elf_class_ty;
-  byte_order : byte_order_ty;
-  elf_version : elf_version_ty;
-  os_abi : elf_os_abi_ty;
-  os_abi_version : Stdint.uint8;
+  ei_class : elf_class_ty;
+  ei_data : byte_order_ty;
+  ei_version : elf_version_ty;
+  ei_os_abi : elf_os_abi_ty;
+  ei_os_abi_version : Stdint.uint8;
 }
-
-val os_abi_ty_to_string : elf_os_abi_ty -> string
-val elf_type_ty_to_string : elf_type_ty -> string
-val parse_elf_info : Obuffer.buffer_ty -> (elf_info_ty, string) result
 
 type elf_header_ty = {
   e_type : elf_type_ty;
@@ -241,4 +237,6 @@ type elf_header_ty = {
   e_shstrndx : Stdint.uint16;
 }
 
+val os_abi_ty_to_string : elf_os_abi_ty -> string
+val elf_type_ty_to_string : elf_type_ty -> string
 val new_file : string -> (elf_header_ty, string) result

@@ -48,11 +48,11 @@ let os_abi_ty_to_string os_abi =
   | ELFOSABI_STANDALONE -> "Standalone (embedded) application"
 
 type elf_info_ty = {
-  elf_class : elf_class_ty;
-  byte_order : byte_order_ty;
-  elf_version : elf_version_ty;
-  os_abi : elf_os_abi_ty;
-  os_abi_version : Stdint.uint8;
+  ei_class : elf_class_ty;
+  ei_data : byte_order_ty;
+  ei_version : elf_version_ty;
+  ei_os_abi : elf_os_abi_ty;
+  ei_os_abi_version : Stdint.uint8;
 }
 
 type elf_type_ty =
@@ -264,7 +264,7 @@ type machine_ty =
   | EM_ALPHA_STD (* Digital Alpha (standard value) *)
   | EM_ALPHA (* Alpha (written in the absence of an ABI) *)
 
-let parse_elf_class buffer =
+let parse_class buffer =
   let open Base.Result.Monad_infix in
   Obuffer.PlatformAgnosticReader.u8 buffer >>= fun value ->
   match Stdint.Uint8.to_int value with
@@ -282,7 +282,7 @@ let parse_byte_order buffer =
   | 0 -> Error (Printf.sprintf "invalid ELF data encoding: ELFDATANONE")
   | x -> Error (Printf.sprintf "unknown ELF data encoding: %02x" x)
 
-let parse_elf_version_in_identifier buffer =
+let parse_version_in_identifier buffer =
   let open Base.Result.Monad_infix in
   Obuffer.PlatformAgnosticReader.u8 buffer >>= fun value ->
   match Stdint.Uint8.to_int value with
@@ -290,7 +290,7 @@ let parse_elf_version_in_identifier buffer =
   | 0 -> Error (Printf.sprintf "invalid ELF version: EV_NONE")
   | x -> Error (Printf.sprintf "unknown ELF version: %02x" x)
 
-let parse_elf_os_abi buffer =
+let parse_os_abi buffer =
   let open Base.Result.Monad_infix in
   Obuffer.PlatformAgnosticReader.u8 buffer >>= fun value ->
   match Stdint.Uint8.to_int value with
@@ -316,16 +316,16 @@ let parse_elf_os_abi buffer =
   | 255 -> Ok ELFOSABI_STANDALONE
   | x -> Error (Printf.sprintf "unknown OS ABI: %02x" x)
 
-let parse_elf_info buffer =
+let parse_info buffer =
   let open Base.Result.Monad_infix in
-  parse_elf_class buffer >>= fun elf_class ->
-  parse_byte_order buffer >>= fun byte_order ->
-  parse_elf_version_in_identifier buffer >>= fun elf_version ->
-  parse_elf_os_abi buffer >>= fun os_abi ->
-  Obuffer.PlatformAgnosticReader.u8 buffer >>= fun os_abi_version ->
-  Ok { elf_class; byte_order; elf_version; os_abi; os_abi_version }
+  parse_class buffer >>= fun ei_class ->
+  parse_byte_order buffer >>= fun ei_data ->
+  parse_version_in_identifier buffer >>= fun ei_version ->
+  parse_os_abi buffer >>= fun ei_os_abi ->
+  Obuffer.PlatformAgnosticReader.u8 buffer >>= fun ei_os_abi_version ->
+  Ok { ei_class; ei_data; ei_version; ei_os_abi; ei_os_abi_version }
 
-let parse_elf_type reader_module buffer =
+let parse_type reader_module buffer =
   let open Base.Result.Monad_infix in
   let module M = (val reader_module : Obuffer.Reader) in
   M.u16 buffer >>= fun value ->
@@ -532,7 +532,7 @@ let parse_machine reader_module buffer =
   | 0x9026 -> Ok EM_ALPHA
   | x -> Error (Printf.sprintf "unknown machine type: %04x" x)
 
-let parse_elf_version reader_module buffer =
+let parse_version reader_module buffer =
   let open Base.Result.Monad_infix in
   let module M = (val reader_module : Obuffer.Reader) in
   M.u32 buffer >>= fun value ->
@@ -547,7 +547,7 @@ let parse_header_field reader_module elf_class buffer =
   | ELFCLASS32 -> Result.map Stdint.Uint64.of_uint32 (M.u32 buffer)
   | ELFCLASS64 -> M.u64 buffer
 
-let parse_section_entry_count reader_module buffer e_class e_shoff e_shentsize =
+let parse_shnum reader_module buffer e_class e_shoff e_shentsize =
   let open Base.Result.Monad_infix in
   let module M = (val reader_module : Obuffer.Reader) in
   M.u16 buffer >>= fun e_shnum ->
@@ -563,7 +563,7 @@ let parse_section_entry_count reader_module buffer e_class e_shoff e_shentsize =
     Error (Printf.sprintf "invalid e_shentsize %d" int_shentsize)
   else Ok e_shnum
 
-let parse_string_table_index reader_module buffer e_shnum =
+let parse_shstrndx reader_module buffer e_shnum =
   let open Base.Result.Monad_infix in
   let module M = (val reader_module : Obuffer.Reader) in
   M.u16 buffer >>= fun e_shstrndx ->
@@ -576,7 +576,7 @@ let parse_string_table_index reader_module buffer e_shnum =
          int_shnum)
   else Ok e_shstrndx
 
-let parse_phdr_entry_count reader_module elf_class buffer e_phentsize =
+let parse_phnum reader_module elf_class buffer e_phentsize =
   let open Base.Result.Monad_infix in
   let module M = (val reader_module : Obuffer.Reader) in
   M.u16 buffer >>= fun e_phnum ->
@@ -599,6 +599,7 @@ type elf_header_ty = {
   e_entry : Stdint.uint64;
   e_phoff : Stdint.uint64;
   e_shoff : Stdint.uint64;
+  (* The remaining fields have the same size between ELFCLASS32 and ELFCLASS64 *)
   e_flags : Stdint.uint32;
   e_ehsize : Stdint.uint16;
   e_phentsize : Stdint.uint16;
@@ -608,7 +609,7 @@ type elf_header_ty = {
   e_shstrndx : Stdint.uint16;
 }
 
-let parse_elf_header elf_info buffer =
+let parse_header info buffer =
   (* Skip the padding bytes *)
   Obuffer.PlatformAgnosticReader.advance buffer 7;
 
@@ -619,25 +620,24 @@ let parse_elf_header elf_info buffer =
   in
 
   (* Select between BigEndian or LittleEndian reader *)
-  let reader = fetch_reader_module elf_info.byte_order in
-  let e_class = elf_info.elf_class in
+  let reader = fetch_reader_module info.ei_data in
+  let e_class = info.ei_class in
   let open Base.Result.Monad_infix in
   let module M = (val reader : Obuffer.Reader) in
-  parse_elf_type reader buffer >>= fun e_type ->
+  parse_type reader buffer >>= fun e_type ->
   parse_machine reader buffer >>= fun e_machine ->
-  parse_elf_version reader buffer >>= fun e_version ->
+  parse_version reader buffer >>= fun e_version ->
   parse_header_field reader e_class buffer >>= fun e_entry ->
   parse_header_field reader e_class buffer >>= fun e_phoff ->
   parse_header_field reader e_class buffer >>= fun e_shoff ->
   M.u32 buffer >>= fun e_flags ->
   M.u16 buffer >>= fun e_ehsize ->
   M.u16 buffer >>= fun e_phentsize ->
-  parse_phdr_entry_count reader e_class buffer e_phentsize >>= fun e_phnum ->
+  parse_phnum reader e_class buffer e_phentsize >>= fun e_phnum ->
   M.u16 buffer >>= fun e_shentsize ->
-  parse_section_entry_count reader buffer e_class e_shoff e_shentsize
-  >>= fun e_shnum ->
-  parse_string_table_index reader buffer e_shnum >>= fun e_shstrndx ->
-  if e_version = elf_info.elf_version then
+  parse_shnum reader buffer e_class e_shoff e_shentsize >>= fun e_shnum ->
+  parse_shstrndx reader buffer e_shnum >>= fun e_shstrndx ->
+  if e_version = info.ei_version then
     Ok
       {
         e_type;
@@ -665,7 +665,7 @@ let validate_magic_number buffer =
       let hexes = Obuffer.fmt_string_as_hex_bytes value in
       Error (Printf.sprintf "bad magic number: %s" hexes)
 
-let read_elf path =
+let read path =
   try
     let fd = Unix.openfile path [ Unix.O_RDONLY ] 0 in
     let len = Unix.lseek fd 0 Unix.SEEK_END in
@@ -682,6 +682,6 @@ let read_elf path =
 
 let new_file filepath =
   let open Base.Result.Monad_infix in
-  read_elf filepath >>= fun buffer ->
-  parse_elf_info buffer >>= fun elf_info ->
-  parse_elf_header elf_info buffer >>= fun elf_header -> Ok elf_header
+  read filepath >>= fun buffer ->
+  parse_info buffer >>= fun info ->
+  parse_header info buffer >>= fun header -> Ok header
