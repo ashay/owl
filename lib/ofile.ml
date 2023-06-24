@@ -560,7 +560,7 @@ let parse_shnum reader_module buffer e_class e_shoff e_shentsize =
   if Stdint.Uint64.compare e_shoff Stdint.Uint64.zero = 0 && int_shnum <> 0 then
     Error (Printf.sprintf "invalid e_shnum %d for e_shoff=0" int_shnum)
   else if int_shentsize < min_shentsize then
-    Error (Printf.sprintf "invalid e_shentsize %d" int_shentsize)
+    Error (Printf.sprintf "invalid e_shentsize: %d" int_shentsize)
   else Ok e_shnum
 
 let parse_shstrndx reader_module buffer e_shnum =
@@ -587,7 +587,7 @@ let parse_phnum reader_module elf_class buffer e_phentsize =
     match elf_class with ELFCLASS32 -> 8 * 4 | ELFCLASS64 -> (2 * 4) + (6 * 8)
   in
   if int_phnum > 0 && int_phentsize < min_phentsize then
-    Error (Printf.sprintf "invalid e_phentsize %d" int_phentsize)
+    Error (Printf.sprintf "invalid e_phentsize: %d" int_phentsize)
   else Ok e_phnum
 
 type elf_header_ty = {
