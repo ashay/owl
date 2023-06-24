@@ -14,7 +14,7 @@ module PlatformAgnosticReader = struct
 
   let validate_read buffer bytes =
     let size = Bigarray.Array1.dim buffer.byte_array in
-    if buffer.index < size - bytes then Ok buffer
+    if buffer.index <= size - bytes then Ok buffer
     else
       let msg =
         Printf.sprintf

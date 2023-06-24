@@ -547,6 +547,49 @@ let parse_header_field reader_module elf_class buffer =
   | ELFCLASS32 -> Result.map Stdint.Uint64.of_uint32 (M.u32 buffer)
   | ELFCLASS64 -> M.u64 buffer
 
+let parse_section_entry_count reader_module buffer e_class e_shoff e_shentsize =
+  let open Base.Result.Monad_infix in
+  let module M = (val reader_module : Obuffer.Reader) in
+  M.u16 buffer >>= fun e_shnum ->
+  let int_shnum = Stdint.Uint16.to_int e_shnum
+  and int_shentsize = Stdint.Uint16.to_int e_shentsize
+  and min_shentsize =
+    match e_class with ELFCLASS32 -> 10 * 4 | ELFCLASS64 -> (4 * 4) + (6 * 8)
+  in
+  (* We use Stdint.Uint64.compare since we can't safely convert it to int for comparison with zero *)
+  if Stdint.Uint64.compare e_shoff Stdint.Uint64.zero = 0 && int_shnum <> 0 then
+    Error (Printf.sprintf "invalid e_shnum %d for e_shoff=0" int_shnum)
+  else if int_shentsize < min_shentsize then
+    Error (Printf.sprintf "invalid e_shentsize %d" int_shentsize)
+  else Ok e_shnum
+
+let parse_string_table_index reader_module buffer e_shnum =
+  let open Base.Result.Monad_infix in
+  let module M = (val reader_module : Obuffer.Reader) in
+  M.u16 buffer >>= fun e_shstrndx ->
+  (* It is fine to convert to int here since the width of int is greater than width of Stdint.uint16 *)
+  let int_shnum = Stdint.Uint16.to_int e_shnum
+  and int_shstrndx = Stdint.Uint16.to_int e_shstrndx in
+  if int_shnum > 0 && int_shstrndx >= int_shnum then
+    Error
+      (Printf.sprintf "invalid e_shstrndx %d since e_shnum is %d" int_shstrndx
+         int_shnum)
+  else Ok e_shstrndx
+
+let parse_phdr_entry_count reader_module elf_class buffer e_phentsize =
+  let open Base.Result.Monad_infix in
+  let module M = (val reader_module : Obuffer.Reader) in
+  M.u16 buffer >>= fun e_phnum ->
+  (* It is fine to convert to int here since the width of int is greater than width of Stdint.uint16 *)
+  let int_phnum = Stdint.Uint16.to_int e_phnum
+  and int_phentsize = Stdint.Uint16.to_int e_phentsize
+  and min_phentsize =
+    match elf_class with ELFCLASS32 -> 8 * 4 | ELFCLASS64 -> (2 * 4) + (6 * 8)
+  in
+  if int_phnum > 0 && int_phentsize < min_phentsize then
+    Error (Printf.sprintf "invalid e_phentsize %d" int_phentsize)
+  else Ok e_phnum
+
 type elf_header_ty = {
   e_type : elf_type_ty;
   e_machine : machine_ty;
@@ -556,6 +599,13 @@ type elf_header_ty = {
   e_entry : Stdint.uint64;
   e_phoff : Stdint.uint64;
   e_shoff : Stdint.uint64;
+  e_flags : Stdint.uint32;
+  e_ehsize : Stdint.uint16;
+  e_phentsize : Stdint.uint16;
+  e_phnum : Stdint.uint16;
+  e_shentsize : Stdint.uint16;
+  e_shnum : Stdint.uint16;
+  e_shstrndx : Stdint.uint16;
 }
 
 let parse_elf_header elf_info buffer =
@@ -570,16 +620,40 @@ let parse_elf_header elf_info buffer =
 
   (* Select between BigEndian or LittleEndian reader *)
   let reader = fetch_reader_module elf_info.byte_order in
-  let module M = (val reader : Obuffer.Reader) in
+  let e_class = elf_info.elf_class in
   let open Base.Result.Monad_infix in
+  let module M = (val reader : Obuffer.Reader) in
   parse_elf_type reader buffer >>= fun e_type ->
   parse_machine reader buffer >>= fun e_machine ->
   parse_elf_version reader buffer >>= fun e_version ->
-  parse_header_field reader elf_info.elf_class buffer >>= fun e_entry ->
-  parse_header_field reader elf_info.elf_class buffer >>= fun e_phoff ->
-  parse_header_field reader elf_info.elf_class buffer >>= fun e_shoff ->
+  parse_header_field reader e_class buffer >>= fun e_entry ->
+  parse_header_field reader e_class buffer >>= fun e_phoff ->
+  parse_header_field reader e_class buffer >>= fun e_shoff ->
+  M.u32 buffer >>= fun e_flags ->
+  M.u16 buffer >>= fun e_ehsize ->
+  M.u16 buffer >>= fun e_phentsize ->
+  parse_phdr_entry_count reader e_class buffer e_phentsize >>= fun e_phnum ->
+  M.u16 buffer >>= fun e_shentsize ->
+  parse_section_entry_count reader buffer e_class e_shoff e_shentsize
+  >>= fun e_shnum ->
+  parse_string_table_index reader buffer e_shnum >>= fun e_shstrndx ->
   if e_version = elf_info.elf_version then
-    Ok { e_type; e_machine; e_version; e_entry; e_phoff; e_shoff }
+    Ok
+      {
+        e_type;
+        e_machine;
+        e_version;
+        e_entry;
+        e_phoff;
+        e_shoff;
+        e_flags;
+        e_ehsize;
+        e_phentsize;
+        e_phnum;
+        e_shentsize;
+        e_shnum;
+        e_shstrndx;
+      }
   else Error "ELF version mismatch"
 
 let validate_magic_number buffer =

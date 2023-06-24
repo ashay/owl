@@ -232,6 +232,13 @@ type elf_header_ty = {
   e_entry : Stdint.uint64;
   e_phoff : Stdint.uint64;
   e_shoff : Stdint.uint64;
+  e_flags : Stdint.uint32;
+  e_ehsize : Stdint.uint16;
+  e_phentsize : Stdint.uint16;
+  e_phnum : Stdint.uint16;
+  e_shentsize : Stdint.uint16;
+  e_shnum : Stdint.uint16;
+  e_shstrndx : Stdint.uint16;
 }
 
 val new_file : string -> (elf_header_ty, string) result

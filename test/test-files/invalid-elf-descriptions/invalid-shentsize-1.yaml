@@ -1,0 +1,7 @@
+ehdr: !Ehdr
+  e_ident: !Ident
+    ei_class:     ELFCLASS64
+  e_type:       ET_REL
+  e_shoff:      0xD0D0D0D0
+  e_shnum:      0xFE0E
+  e_shentsize:  63

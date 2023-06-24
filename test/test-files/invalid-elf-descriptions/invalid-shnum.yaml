@@ -1,0 +1,4 @@
+ehdr: !Ehdr
+  e_type:       ET_REL
+  e_shnum:      0x0E0E
+  e_shstrndx:   0xF0F0

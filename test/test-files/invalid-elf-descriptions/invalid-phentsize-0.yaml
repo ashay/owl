@@ -1,0 +1,6 @@
+ehdr: !Ehdr
+  e_ident: !Ident
+    ei_class:     ELFCLASS32
+  e_type:       ET_REL
+  e_phnum:      0x0C0C
+  e_phentsize:  31
