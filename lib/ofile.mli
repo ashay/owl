@@ -226,12 +226,12 @@ val elf_type_ty_to_string : elf_type_ty -> string
 val parse_elf_info : Obuffer.buffer_ty -> (elf_info_ty, string) result
 
 type elf_header_ty = {
-  elf_type : elf_type_ty;
-  machine : machine_ty;
-  elf_version : elf_version_ty;
-  entry_point : Stdint.uint64;
-  phdr_offset : Stdint.uint64;
-  shdr_offset : Stdint.uint64;
+  e_type : elf_type_ty;
+  e_machine : machine_ty;
+  e_version : elf_version_ty;
+  e_entry : Stdint.uint64;
+  e_phoff : Stdint.uint64;
+  e_shoff : Stdint.uint64;
 }
 
 val new_file : string -> (elf_header_ty, string) result

@@ -548,14 +548,14 @@ let parse_header_field reader_module elf_class buffer =
   | ELFCLASS64 -> M.u64 buffer
 
 type elf_header_ty = {
-  elf_type : elf_type_ty;
-  machine : machine_ty;
-  elf_version : elf_version_ty;
+  e_type : elf_type_ty;
+  e_machine : machine_ty;
+  e_version : elf_version_ty;
   (* The follow three fields are 32-bits long for ELFCLASS32 and 64-bits long
      for ELFCLASS64, but for simplicity, we cast the values to 64 bits *)
-  entry_point : Stdint.uint64;
-  phdr_offset : Stdint.uint64;
-  shdr_offset : Stdint.uint64;
+  e_entry : Stdint.uint64;
+  e_phoff : Stdint.uint64;
+  e_shoff : Stdint.uint64;
 }
 
 let parse_elf_header elf_info buffer =
@@ -570,16 +570,16 @@ let parse_elf_header elf_info buffer =
 
   (* Select between BigEndian or LittleEndian reader *)
   let reader = fetch_reader_module elf_info.byte_order in
-
+  let module M = (val reader : Obuffer.Reader) in
   let open Base.Result.Monad_infix in
-  parse_elf_type reader buffer >>= fun elf_type ->
-  parse_machine reader buffer >>= fun machine ->
-  parse_elf_version reader buffer >>= fun elf_version ->
-  parse_header_field reader elf_info.elf_class buffer >>= fun entry_point ->
-  parse_header_field reader elf_info.elf_class buffer >>= fun phdr_offset ->
-  parse_header_field reader elf_info.elf_class buffer >>= fun shdr_offset ->
-  if elf_version = elf_info.elf_version then
-    Ok { elf_type; machine; elf_version; entry_point; phdr_offset; shdr_offset }
+  parse_elf_type reader buffer >>= fun e_type ->
+  parse_machine reader buffer >>= fun e_machine ->
+  parse_elf_version reader buffer >>= fun e_version ->
+  parse_header_field reader elf_info.elf_class buffer >>= fun e_entry ->
+  parse_header_field reader elf_info.elf_class buffer >>= fun e_phoff ->
+  parse_header_field reader elf_info.elf_class buffer >>= fun e_shoff ->
+  if e_version = elf_info.elf_version then
+    Ok { e_type; e_machine; e_version; e_entry; e_phoff; e_shoff }
   else Error "ELF version mismatch"
 
 let validate_magic_number buffer =
