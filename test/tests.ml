@@ -1,3 +1,79 @@
+type negative_test_desc = { yaml_path : string; error_message : string }
+
+let negative_tests =
+  [
+    {
+      yaml_path =
+        "test-files/invalid-elf-descriptions/invalid-byte-ordering-0.yaml";
+      error_message = "invalid ELF data encoding: ELFDATANONE";
+    };
+    {
+      yaml_path =
+        "test-files/invalid-elf-descriptions/invalid-byte-ordering-1.yaml";
+      error_message = "unknown ELF data encoding: 03";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-class-0.yaml";
+      error_message = "invalid ELF class: ELFCLASSNONE";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-class-1.yaml";
+      error_message = "unknown ELF class: 03";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-phentsize-0.yaml";
+      error_message = "invalid e_phentsize: 31";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-phentsize-1.yaml";
+      error_message = "invalid e_phentsize: 55";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shentsize-0.yaml";
+      error_message = "invalid e_shentsize: 39";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shentsize-1.yaml";
+      error_message = "invalid e_shentsize: 63";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shnum.yaml";
+      error_message = "invalid e_shnum 3598 for e_shoff=0";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shstrndx.yaml";
+      error_message = "invalid e_shstrndx 61680 since e_shnum is 3598";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-type-0.yaml";
+      error_message = "invalid ELF type: ET_NONE";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-type-1.yaml";
+      error_message = "invalid ELF type: ET_NONE";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-type-2.yaml";
+      error_message = "unknown ELF type: 0005";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-version-0.yaml";
+      error_message = "invalid ELF version: EV_NONE";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-version-1.yaml";
+      error_message = "invalid ELF version: EV_NONE";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-version-2.yaml";
+      error_message = "invalid ELF version: EV_NONE";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-version-3.yaml";
+      error_message = "unknown ELF version: 02";
+    };
+  ]
+
 (* Run command after redirecting stdout and stderr to specified files *)
 let run_cmd_with_redirects cmd_array stdout_path stderr_path =
   let new_stdout = Unix.descr_of_out_channel (open_out stdout_path)
@@ -49,31 +125,22 @@ let fmt_test_name spec_path =
   |> expand_string (String.length test_name + pad_length) " "
   |> expand_string 40 ". "
 
+let succ () =
+  Printf.printf "passed\n";
+  flush stdout;
+  Some ()
+
+let fail () =
+  Printf.printf "failed\n";
+  flush stdout;
+  None
+
 (* Ensure that Owl runs successfully on the given ELF spec *)
 let test_positive_elf_spec spec_path =
   Printf.printf "%s" (fmt_test_name spec_path);
   match run_elf_spec_pipeline spec_path with
-  | Ok _ ->
-      Printf.printf "passed\n";
-      flush stdout;
-      Some ()
-  | Error _ ->
-      Printf.printf "failed\n";
-      flush stdout;
-      None
-
-(* Ensure that Owl fails on the given ELF spec *)
-let test_negative_elf_spec spec_path =
-  Printf.printf "%s" (fmt_test_name spec_path);
-  match run_elf_spec_pipeline spec_path with
-  | Error _ ->
-      Printf.printf "passed\n";
-      flush stdout;
-      Some ()
-  | Ok _ ->
-      Printf.printf "failed\n";
-      flush stdout;
-      None
+  | Ok _ -> succ ()
+  | Error _ -> fail ()
 
 let yaml_files dir =
   let check_extension filename =
@@ -90,15 +157,27 @@ let run_tests test_fn elf_spec_dir =
   let succ = specs |> List.filter_map test_fn |> List.length in
   (total, total - succ)
 
+(* Ensure that Owl fails on the given ELF spec *)
+let run_negative_tests () =
+  let total = List.length negative_tests
+  and aux test_desc =
+    Printf.printf "%s" (fmt_test_name test_desc.yaml_path);
+    match run_elf_spec_pipeline test_desc.yaml_path with
+    | Error msg ->
+        if String.equal msg test_desc.error_message then succ () else fail ()
+    | Ok _ -> fail ()
+  in
+  let succ = negative_tests |> List.filter_map aux |> List.length in
+  (total, total - succ)
+
 let () =
   Printf.printf "Running positive tests ...\n";
   let ptotal, pfail =
     run_tests test_positive_elf_spec "test-files/valid-elf-descriptions"
   in
+
   Printf.printf "\nRunning negative tests ...\n";
-  let ntotal, nfail =
-    run_tests test_negative_elf_spec "test-files/invalid-elf-descriptions"
-  in
+  let ntotal, nfail = run_negative_tests () in
 
   Printf.printf "\nSummary (%d positive tests):\n" ptotal;
   Printf.printf " - failed: %u\n" pfail;

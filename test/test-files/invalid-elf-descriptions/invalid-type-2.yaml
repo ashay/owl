@@ -1,3 +1,2 @@
 ehdr: !Ehdr
-  e_ident: !Ident
-    ei_data: 3
+  e_type: 5
