@@ -239,4 +239,17 @@ type elf_header_ty = {
 
 val os_abi_ty_to_string : elf_os_abi_ty -> string
 val elf_type_ty_to_string : elf_type_ty -> string
-val new_file : string -> (elf_header_ty, string) result
+
+type phdr_type_ty =
+  | PT_NULL
+  | PT_LOAD
+  | PT_DYNAMIC
+  | PT_INTERP
+  | PT_NOTE
+  | PT_SHLIB
+  | PT_PHDR
+  | PT_PROC
+
+type phdr_ty = { p_type : phdr_type_ty }
+
+val new_file : string -> (phdr_ty list * elf_header_ty, string) result

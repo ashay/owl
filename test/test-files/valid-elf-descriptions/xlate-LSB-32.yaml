@@ -14,7 +14,7 @@ ehdr: !Ehdr
   e_flags:      [64, 8, 2, 1]
   e_ehsize:     0x0A0A
   e_phentsize:  0xB0B0
-  e_phnum:      0x0C0C
+  e_phnum:      0
   e_shentsize:  0xD0D0
   e_shnum:      0xFE0E
   e_shstrndx:   0xF0F0
