@@ -271,7 +271,7 @@ let parse_class buffer =
   | 1 -> Ok ELFCLASS32
   | 2 -> Ok ELFCLASS64
   | 0 -> Error (Printf.sprintf "invalid ELF class: ELFCLASSNONE")
-  | x -> Error (Printf.sprintf "unknown ELF class: %02x" x)
+  | x -> Error (Printf.sprintf "unknown ELF class: 0x%02x" x)
 
 let parse_byte_order buffer =
   let open Base.Result.Monad_infix in
@@ -280,7 +280,7 @@ let parse_byte_order buffer =
   | 1 -> Ok LITTLE_ENDIAN
   | 2 -> Ok BIG_ENDIAN
   | 0 -> Error (Printf.sprintf "invalid ELF data encoding: ELFDATANONE")
-  | x -> Error (Printf.sprintf "unknown ELF data encoding: %02x" x)
+  | x -> Error (Printf.sprintf "unknown ELF data encoding: 0x%02x" x)
 
 let parse_version_in_identifier buffer =
   let open Base.Result.Monad_infix in
@@ -288,7 +288,7 @@ let parse_version_in_identifier buffer =
   match Stdint.Uint8.to_int value with
   | 1 -> Ok EV_CURRENT
   | 0 -> Error (Printf.sprintf "invalid ELF version: EV_NONE")
-  | x -> Error (Printf.sprintf "unknown ELF version: %02x" x)
+  | x -> Error (Printf.sprintf "unknown ELF version: 0x%02x" x)
 
 let parse_os_abi buffer =
   let open Base.Result.Monad_infix in
@@ -314,7 +314,7 @@ let parse_os_abi buffer =
   | 17 -> Ok ELFOSABI_CLOUDABI
   | 97 -> Ok ELFOSABI_ARM
   | 255 -> Ok ELFOSABI_STANDALONE
-  | x -> Error (Printf.sprintf "unknown OS ABI: %02x" x)
+  | x -> Error (Printf.sprintf "unknown OS ABI: 0x%02x" x)
 
 let parse_info buffer =
   let open Base.Result.Monad_infix in
@@ -338,7 +338,7 @@ let parse_type reader_module buffer =
   | x ->
       if x >= 0xfe00 && x <= 0xfeff then Ok ET_OS
       else if x >= 0xff00 && x <= 0xffff then Ok ET_PROC
-      else Error (Printf.sprintf "unknown ELF type: %04x" x)
+      else Error (Printf.sprintf "unknown ELF type: 0x%04x" x)
 
 let parse_machine reader_module buffer =
   let open Base.Result.Monad_infix in
@@ -530,7 +530,7 @@ let parse_machine reader_module buffer =
   | 6 -> Ok EM_486
   | 41 -> Ok EM_ALPHA_STD
   | 0x9026 -> Ok EM_ALPHA
-  | x -> Error (Printf.sprintf "unknown machine type: %04x" x)
+  | x -> Error (Printf.sprintf "unknown machine type: 0x%04x" x)
 
 let parse_version reader_module buffer =
   let open Base.Result.Monad_infix in
@@ -539,7 +539,7 @@ let parse_version reader_module buffer =
   match Stdint.Uint32.to_int value with
   | 1 -> Ok EV_CURRENT
   | 0 -> Error (Printf.sprintf "invalid ELF version: EV_NONE")
-  | x -> Error (Printf.sprintf "unknown ELF version: %02x" x)
+  | x -> Error (Printf.sprintf "unknown ELF version: 0x%02x" x)
 
 let parse_header_field reader_module elf_class buffer =
   let module M = (val reader_module : Obuffer.Reader) in
@@ -714,7 +714,7 @@ let parse_phdr_type reader buffer =
   | 6 -> Ok PT_PHDR
   | x ->
       if x >= 0x70000000 && x <= 0x7fffffff then Ok PT_PROC
-      else Error (Printf.sprintf "unknown program header type: %04x" x)
+      else Error (Printf.sprintf "unknown program header type: 0x%04x" x)
 
 let skip_to_phdr_offset header buffer idx =
   let index = Stdint.Uint64.of_int idx in

@@ -10,7 +10,7 @@ let negative_tests =
     {
       yaml_path =
         "test-files/invalid-elf-descriptions/invalid-byte-ordering-1.yaml";
-      error_message = "unknown ELF data encoding: 03";
+      error_message = "unknown ELF data encoding: 0x03";
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-class-0.yaml";
@@ -18,11 +18,11 @@ let negative_tests =
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-class-1.yaml";
-      error_message = "unknown ELF class: 03";
+      error_message = "unknown ELF class: 0x03";
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-phdr-type.yaml";
-      error_message = "unknown program header type: 0007";
+      error_message = "unknown program header type: 0x0007";
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-phentsize-0.yaml";
@@ -58,7 +58,7 @@ let negative_tests =
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-type-2.yaml";
-      error_message = "unknown ELF type: 0005";
+      error_message = "unknown ELF type: 0x0005";
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-version-0.yaml";
@@ -74,7 +74,7 @@ let negative_tests =
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-version-3.yaml";
-      error_message = "unknown ELF version: 02";
+      error_message = "unknown ELF version: 0x02";
     };
   ]
 
