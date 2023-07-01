@@ -2,4 +2,4 @@ ehdr: !Ehdr
   e_type:       ET_REL
 phdrtab:
  - !Phdr
-   p_type: 7
+   p_type: 8

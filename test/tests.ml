@@ -22,7 +22,7 @@ let negative_tests =
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-phdr-type.yaml";
-      error_message = "unknown program header type: 0x0007";
+      error_message = "unknown program header type: 0x0008";
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-phentsize-0.yaml";
