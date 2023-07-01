@@ -250,6 +250,15 @@ type phdr_type_ty =
   | PT_PHDR
   | PT_PROC
 
-type phdr_ty = { p_type : phdr_type_ty }
+type phdr_ty = {
+  p_type : phdr_type_ty;
+  p_offset : Stdint.uint64;
+  p_vaddr : Stdint.uint64;
+  p_paddr : Stdint.uint64;
+  p_filesz : Stdint.uint64;
+  p_memsz : Stdint.uint64;
+  p_flags : Stdint.uint32;
+  p_align : Stdint.uint64;
+}
 
 val new_file : string -> (phdr_ty list * elf_header_ty, string) result
