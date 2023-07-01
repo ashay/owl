@@ -248,6 +248,8 @@ type phdr_type_ty =
   | PT_NOTE
   | PT_SHLIB
   | PT_PHDR
+  | PT_TLS
+  | PT_OS
   | PT_PROC
 
 type phdr_ty = {

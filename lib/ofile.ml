@@ -687,6 +687,8 @@ type phdr_type_ty =
   | PT_NOTE
   | PT_SHLIB
   | PT_PHDR
+  | PT_TLS
+  | PT_OS
   | PT_PROC
 
 type phdr_ty = {
@@ -712,8 +714,10 @@ let parse_phdr_type reader buffer =
   | 4 -> Ok PT_NOTE
   | 5 -> Ok PT_SHLIB
   | 6 -> Ok PT_PHDR
+  | 7 -> Ok PT_TLS
   | x ->
-      if x >= 0x70000000 && x <= 0x7fffffff then Ok PT_PROC
+      if x >= 0x60000000 && x <= 0x6fffffff then Ok PT_OS
+      else if x >= 0x70000000 && x <= 0x7fffffff then Ok PT_PROC
       else Error (Printf.sprintf "unknown program header type: 0x%04x" x)
 
 let skip_to_phdr_offset header buffer idx =
