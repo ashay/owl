@@ -1,14 +1,11 @@
 ehdr: !Ehdr
-  e_ident: !Ident
-    ei_class: ELFCLASS64
-    ei_data:  ELFDATA2LSB
   e_type: ET_REL
-  e_shnum: 0
   e_shstrndx: 65537
 
 sections:
  - !Section # index 0
    sh_type: SHT_PROGBITS
+
  - !Section
    sh_type: SHT_STRTAB
    sh_index: 65537
