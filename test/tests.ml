@@ -33,6 +33,10 @@ let negative_tests =
       error_message = "invalid e_phentsize: 55";
     };
     {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shdr-type.yaml";
+      error_message = "unknown section header type: 0x0013";
+    };
+    {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-shentsize-0.yaml";
       error_message = "invalid e_shentsize: 39";
     };
