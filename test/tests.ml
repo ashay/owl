@@ -45,8 +45,12 @@ let negative_tests =
       error_message = "invalid e_shentsize: 63";
     };
     {
-      yaml_path = "test-files/invalid-elf-descriptions/invalid-shnum.yaml";
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shnum-0.yaml";
       error_message = "invalid e_shnum 3598 for e_shoff=0";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shnum-1.yaml";
+      error_message = "invalid type of the initial section: SHT_PROGBITS";
     };
     {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-shstrndx.yaml";

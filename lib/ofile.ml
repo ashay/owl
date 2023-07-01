@@ -792,6 +792,36 @@ type shdr_type_ty =
   | SHT_PROC
   | SHT_USER
 
+let sh_type_to_string sh_type =
+  match sh_type with
+  | SHT_NULL -> "SHT_NULL"
+  | SHT_PROGBITS -> "SHT_PROGBITS"
+  | SHT_SYMTAB -> "SHT_SYMTAB"
+  | SHT_STRTAB -> "SHT_STRTAB"
+  | SHT_RELA -> "SHT_RELA"
+  | SHT_HASH -> "SHT_HASH"
+  | SHT_DYNAMIC -> "SHT_DYNAMIC"
+  | SHT_NOTE -> "SHT_NOTE"
+  | SHT_NOBITS -> "SHT_NOBITS"
+  | SHT_REL -> "SHT_REL"
+  | SHT_SHLIB -> "SHT_SHLIB"
+  | SHT_DYNSYM -> "SHT_DYNSYM"
+  | SHT_INIT_ARRAY -> "SHT_INIT_ARRAY"
+  | SHT_FINI_ARRAY -> "SHT_FINI_ARRAY"
+  | SHT_PREINIT_ARRAY -> "SHT_PREINIT_ARRAY"
+  | SHT_GROUP -> "SHT_GROUP"
+  | SHT_SYMTAB_SHNDX -> "SHT_SYMTAB_SHNDX"
+  | SHT_GNU_ATTRIBUTES -> "SHT_GNU_ATTRIBUTES"
+  | SHT_GNU_HASH -> "SHT_GNU_HASH"
+  | SHT_GNU_LIBLIST -> "SHT_GNU_LIBLIST"
+  | SHT_GNU_VERDEF -> "SHT_GNU_VERDEF"
+  | SHT_GNU_VERNEED -> "SHT_GNU_VERNEED"
+  | SHT_GNU_VERSYM -> "SHT_GNU_VERSYM"
+  | SHT_OS -> "SHT_OS"
+  | SHT_MIPS_ABIFLAGS -> "SHT_MIPS_ABIFLAGS"
+  | SHT_PROC -> "SHT_PROC"
+  | SHT_USER -> "SHT_USER"
+
 type shdr_ty = {
   sh_name : Stdint.uint32;
   sh_type : shdr_type_ty;
@@ -910,6 +940,22 @@ let parse_shdr info header buffer idx =
   | ELFCLASS32 -> parse_elf32_shdr reader buffer
   | ELFCLASS64 -> parse_elf64_shdr reader buffer
 
+let fetch_extended_section_count first_shdr =
+  let shn_loreserve = 0xff00 in
+  let int_shnum = Stdint.Uint64.to_int first_shdr.sh_size in
+  if int_shnum < shn_loreserve then
+    Error
+      (Printf.sprintf "invalid ELF shnum 0x%x contained in sh_size" int_shnum)
+  else
+    match first_shdr.sh_type with
+    | SHT_NULL -> Ok int_shnum
+    | _ ->
+        let section_type = sh_type_to_string first_shdr.sh_type in
+        let msg =
+          Printf.sprintf "invalid type of the initial section: %s" section_type
+        in
+        Error msg
+
 let fetch_section_count info header buffer =
   if header.e_shoff = Stdint.Uint64.zero || header.e_shnum <> Stdint.Uint16.zero
   then Ok (Stdint.Uint16.to_int header.e_shnum)
@@ -917,8 +963,7 @@ let fetch_section_count info header buffer =
     (* The section header count is encoded in the size field of the first
        section header. *)
     let open Base.Result.Monad_infix in
-    parse_shdr info header buffer 0 >>= fun shdr ->
-    Ok (Stdint.Uint64.to_int shdr.sh_size)
+    parse_shdr info header buffer 0 >>= fetch_extended_section_count
 
 (* XXX: Can this be replaced with a tail-recursive library function? *)
 let rec list_init n f =

@@ -3,7 +3,6 @@ ehdr: !Ehdr
     ei_class: ELFCLASS32
     ei_data:  ELFDATA2LSB
   e_type: ET_REL
-  e_shnum: 0
 
 sections:
  - !Section # index 0
