@@ -609,21 +609,20 @@ type elf_header_ty = {
   e_shstrndx : Stdint.uint16;
 }
 
+(* Select between BigEndian or LittleEndian reader *)
+let fetch_reader_module byte_order =
+  match byte_order with
+  | BIG_ENDIAN -> (module Obuffer.BigEndianReader : Obuffer.Reader)
+  | LITTLE_ENDIAN -> (module Obuffer.LittleEndianReader : Obuffer.Reader)
+
 let parse_header info buffer =
-  (* Skip the padding bytes *)
-  Obuffer.PlatformAgnosticReader.advance buffer 7;
-
-  let fetch_reader_module byte_order =
-    match byte_order with
-    | BIG_ENDIAN -> (module Obuffer.BigEndianReader : Obuffer.Reader)
-    | LITTLE_ENDIAN -> (module Obuffer.LittleEndianReader : Obuffer.Reader)
-  in
-
-  (* Select between BigEndian or LittleEndian reader *)
   let reader = fetch_reader_module info.ei_data in
+  let module M = (val reader : Obuffer.Reader) in
+  (* Skip the padding bytes *)
+  M.advance buffer 7;
+
   let e_class = info.ei_class in
   let open Base.Result.Monad_infix in
-  let module M = (val reader : Obuffer.Reader) in
   parse_type reader buffer >>= fun e_type ->
   parse_machine reader buffer >>= fun e_machine ->
   parse_version reader buffer >>= fun e_version ->
@@ -680,8 +679,61 @@ let read path =
     let err_description = Unix.error_message err_code in
     Error (Printf.sprintf "%s: %s %s" fn_name arg err_description)
 
+type phdr_type_ty =
+  | PT_NULL
+  | PT_LOAD
+  | PT_DYNAMIC
+  | PT_INTERP
+  | PT_NOTE
+  | PT_SHLIB
+  | PT_PHDR
+  | PT_PROC
+
+type phdr_ty = { p_type : phdr_type_ty }
+
+let parse_phdr_type reader buffer =
+  let module M = (val reader : Obuffer.Reader) in
+  let open Base.Result.Monad_infix in
+  M.u32 buffer >>= fun value ->
+  match Stdint.Uint32.to_int value with
+  | 0 -> Ok PT_NULL
+  | 1 -> Ok PT_LOAD
+  | 2 -> Ok PT_DYNAMIC
+  | 3 -> Ok PT_INTERP
+  | 4 -> Ok PT_NOTE
+  | 5 -> Ok PT_SHLIB
+  | 6 -> Ok PT_PHDR
+  | x ->
+      if x >= 0x70000000 && x <= 0x7fffffff then Ok PT_PROC
+      else Error (Printf.sprintf "unknown program header type: %04x" x)
+
+let parse_phdrs info header buffer idx =
+  let reader = fetch_reader_module info.ei_data in
+  let module M = (val reader : Obuffer.Reader) in
+  let index = Stdint.Uint64.of_int idx in
+  let phentsize = Stdint.Uint16.to_uint64 header.e_phentsize in
+  let mul = Stdint.Uint64.( * ) index phentsize in
+  let offset = Stdint.Uint64.( + ) header.e_phoff mul in
+  (* We convert the offset from uint64 to int, since the underlying BigArray
+     operates on int values *)
+  Obuffer.PlatformAgnosticReader.seek buffer (Stdint.Uint64.to_int offset);
+  let open Base.Result.Monad_infix in
+  parse_phdr_type reader buffer >>= fun p_type -> Ok { p_type }
+
+(* XXX: Can this be replaced with a tail-recursive library function? *)
+let rec list_init n f =
+  if n = 0 then Ok []
+  else
+    match (f (n - 1), list_init (n - 1) f) with
+    | Ok v, Ok l -> Ok (v :: l)
+    | _, Error e -> Error e
+    | Error e, _ -> Error e
+
 let new_file filepath =
   let open Base.Result.Monad_infix in
   read filepath >>= fun buffer ->
   parse_info buffer >>= fun info ->
-  parse_header info buffer >>= fun header -> Ok header
+  parse_header info buffer >>= fun header ->
+  let header_count = Stdint.Uint16.to_int header.e_phnum in
+  list_init header_count (parse_phdrs info header buffer) >>= fun phdrs ->
+  Ok (phdrs, header)

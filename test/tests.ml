@@ -21,6 +21,10 @@ let negative_tests =
       error_message = "unknown ELF class: 03";
     };
     {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-phdr-type.yaml";
+      error_message = "unknown program header type: 0007";
+    };
+    {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-phentsize-0.yaml";
       error_message = "invalid e_phentsize: 31";
     };

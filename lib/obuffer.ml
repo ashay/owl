@@ -10,6 +10,7 @@ let fmt_string_as_hex_bytes str =
   String.concat " " (List.map aux chars)
 
 module PlatformAgnosticReader = struct
+  let seek t pos = t.index <- pos
   let advance t count = t.index <- t.index + count
 
   let validate_read buffer bytes =
@@ -43,6 +44,7 @@ end
 
 (* Module signature for little- and big-endian readers *)
 module type Reader = sig
+  val seek : buffer_ty -> int -> unit
   val advance : buffer_ty -> int -> unit
   val u8 : buffer_ty -> (Stdint.Uint8.t, string) result
   val u16 : buffer_ty -> (Stdint.Uint16.t, string) result
@@ -51,6 +53,7 @@ module type Reader = sig
 end
 
 module LittleEndianReader : Reader = struct
+  let seek t pos = PlatformAgnosticReader.seek t pos
   let advance t count = PlatformAgnosticReader.advance t count
   let u8 t = PlatformAgnosticReader.u8 t
 
@@ -83,6 +86,7 @@ module LittleEndianReader : Reader = struct
 end
 
 module BigEndianReader : Reader = struct
+  let seek t pos = PlatformAgnosticReader.seek t pos
   let advance t count = PlatformAgnosticReader.advance t count
   let u8 t = PlatformAgnosticReader.u8 t
 
