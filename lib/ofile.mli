@@ -261,4 +261,47 @@ type phdr_ty = {
   p_align : Stdint.uint64;
 }
 
-val new_file : string -> (phdr_ty list * elf_header_ty, string) result
+type shdr_type_ty =
+  | SHT_NULL
+  | SHT_PROGBITS
+  | SHT_SYMTAB
+  | SHT_STRTAB
+  | SHT_RELA
+  | SHT_HASH
+  | SHT_DYNAMIC
+  | SHT_NOTE
+  | SHT_NOBITS
+  | SHT_REL
+  | SHT_SHLIB
+  | SHT_DYNSYM
+  | SHT_INIT_ARRAY
+  | SHT_FINI_ARRAY
+  | SHT_PREINIT_ARRAY
+  | SHT_GROUP
+  | SHT_SYMTAB_SHNDX
+  | SHT_GNU_ATTRIBUTES
+  | SHT_GNU_HASH
+  | SHT_GNU_LIBLIST
+  | SHT_GNU_VERDEF
+  | SHT_GNU_VERNEED
+  | SHT_GNU_VERSYM
+  | SHT_OS
+  | SHT_MIPS_ABIFLAGS
+  | SHT_PROC
+  | SHT_USER
+
+type shdr_ty = {
+  sh_name : Stdint.uint32;
+  sh_type : shdr_type_ty;
+  sh_flags : Stdint.uint64;
+  sh_addr : Stdint.uint64;
+  sh_offset : Stdint.uint64;
+  sh_size : Stdint.uint64;
+  sh_link : Stdint.uint32;
+  sh_info : Stdint.uint32;
+  sh_addralign : Stdint.uint64;
+  sh_entsize : Stdint.uint64;
+}
+
+val new_file :
+  string -> (elf_header_ty * phdr_ty list * shdr_ty list, string) result

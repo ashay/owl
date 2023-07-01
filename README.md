@@ -1,7 +1,7 @@
+# ELF Parser in Pure OCaml #
+
 [![Build and
 Test](https://github.com/ashay/owl/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/ashay/owl/actions/workflows/build-and-test.yml)
-
-# ELF Parser in Pure OCaml #
 
 This is a work-in-progress library for reading ELF files.  Once complete, at
 minimum, it will allow the user to read the symbol table, associate source code

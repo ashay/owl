@@ -271,7 +271,7 @@ let parse_class buffer =
   | 1 -> Ok ELFCLASS32
   | 2 -> Ok ELFCLASS64
   | 0 -> Error (Printf.sprintf "invalid ELF class: ELFCLASSNONE")
-  | x -> Error (Printf.sprintf "unknown ELF class: %02x" x)
+  | x -> Error (Printf.sprintf "unknown ELF class: 0x%02x" x)
 
 let parse_byte_order buffer =
   let open Base.Result.Monad_infix in
@@ -280,7 +280,7 @@ let parse_byte_order buffer =
   | 1 -> Ok LITTLE_ENDIAN
   | 2 -> Ok BIG_ENDIAN
   | 0 -> Error (Printf.sprintf "invalid ELF data encoding: ELFDATANONE")
-  | x -> Error (Printf.sprintf "unknown ELF data encoding: %02x" x)
+  | x -> Error (Printf.sprintf "unknown ELF data encoding: 0x%02x" x)
 
 let parse_version_in_identifier buffer =
   let open Base.Result.Monad_infix in
@@ -288,7 +288,7 @@ let parse_version_in_identifier buffer =
   match Stdint.Uint8.to_int value with
   | 1 -> Ok EV_CURRENT
   | 0 -> Error (Printf.sprintf "invalid ELF version: EV_NONE")
-  | x -> Error (Printf.sprintf "unknown ELF version: %02x" x)
+  | x -> Error (Printf.sprintf "unknown ELF version: 0x%02x" x)
 
 let parse_os_abi buffer =
   let open Base.Result.Monad_infix in
@@ -314,7 +314,7 @@ let parse_os_abi buffer =
   | 17 -> Ok ELFOSABI_CLOUDABI
   | 97 -> Ok ELFOSABI_ARM
   | 255 -> Ok ELFOSABI_STANDALONE
-  | x -> Error (Printf.sprintf "unknown OS ABI: %02x" x)
+  | x -> Error (Printf.sprintf "unknown OS ABI: 0x%02x" x)
 
 let parse_info buffer =
   let open Base.Result.Monad_infix in
@@ -338,7 +338,7 @@ let parse_type reader_module buffer =
   | x ->
       if x >= 0xfe00 && x <= 0xfeff then Ok ET_OS
       else if x >= 0xff00 && x <= 0xffff then Ok ET_PROC
-      else Error (Printf.sprintf "unknown ELF type: %04x" x)
+      else Error (Printf.sprintf "unknown ELF type: 0x%04x" x)
 
 let parse_machine reader_module buffer =
   let open Base.Result.Monad_infix in
@@ -530,7 +530,7 @@ let parse_machine reader_module buffer =
   | 6 -> Ok EM_486
   | 41 -> Ok EM_ALPHA_STD
   | 0x9026 -> Ok EM_ALPHA
-  | x -> Error (Printf.sprintf "unknown machine type: %04x" x)
+  | x -> Error (Printf.sprintf "unknown machine type: 0x%04x" x)
 
 let parse_version reader_module buffer =
   let open Base.Result.Monad_infix in
@@ -539,7 +539,7 @@ let parse_version reader_module buffer =
   match Stdint.Uint32.to_int value with
   | 1 -> Ok EV_CURRENT
   | 0 -> Error (Printf.sprintf "invalid ELF version: EV_NONE")
-  | x -> Error (Printf.sprintf "unknown ELF version: %02x" x)
+  | x -> Error (Printf.sprintf "unknown ELF version: 0x%02x" x)
 
 let parse_header_field reader_module elf_class buffer =
   let module M = (val reader_module : Obuffer.Reader) in
@@ -714,7 +714,7 @@ let parse_phdr_type reader buffer =
   | 6 -> Ok PT_PHDR
   | x ->
       if x >= 0x70000000 && x <= 0x7fffffff then Ok PT_PROC
-      else Error (Printf.sprintf "unknown program header type: %04x" x)
+      else Error (Printf.sprintf "unknown program header type: 0x%04x" x)
 
 let skip_to_phdr_offset header buffer idx =
   let index = Stdint.Uint64.of_int idx in
@@ -751,13 +751,170 @@ let parse_elf64_phdr reader buffer =
   M.u64 buffer >>= fun p_align ->
   Ok { p_type; p_offset; p_vaddr; p_paddr; p_filesz; p_memsz; p_flags; p_align }
 
-let parse_phdrs info header buffer idx =
+let parse_phdr info header buffer idx =
   skip_to_phdr_offset header buffer idx;
   let reader = fetch_reader_module info.ei_data in
   match info.ei_class with
   (* The sequence of fields differs between ELF32 and ELF64 files *)
   | ELFCLASS32 -> parse_elf32_phdr reader buffer
   | ELFCLASS64 -> parse_elf64_phdr reader buffer
+
+type shdr_type_ty =
+  | SHT_NULL
+  | SHT_PROGBITS
+  | SHT_SYMTAB
+  | SHT_STRTAB
+  | SHT_RELA
+  | SHT_HASH
+  | SHT_DYNAMIC
+  | SHT_NOTE
+  | SHT_NOBITS
+  | SHT_REL
+  | SHT_SHLIB
+  | SHT_DYNSYM
+  | SHT_INIT_ARRAY
+  | SHT_FINI_ARRAY
+  | SHT_PREINIT_ARRAY
+  | SHT_GROUP
+  | SHT_SYMTAB_SHNDX
+  | SHT_GNU_ATTRIBUTES
+  | SHT_GNU_HASH
+  | SHT_GNU_LIBLIST
+  | SHT_GNU_VERDEF
+  | SHT_GNU_VERNEED
+  | SHT_GNU_VERSYM
+  | SHT_OS
+  | SHT_MIPS_ABIFLAGS
+  | SHT_PROC
+  | SHT_USER
+
+type shdr_ty = {
+  sh_name : Stdint.uint32;
+  sh_type : shdr_type_ty;
+  sh_flags : Stdint.uint64;
+  sh_addr : Stdint.uint64;
+  sh_offset : Stdint.uint64;
+  sh_size : Stdint.uint64;
+  sh_link : Stdint.uint32;
+  sh_info : Stdint.uint32;
+  sh_addralign : Stdint.uint64;
+  sh_entsize : Stdint.uint64;
+}
+
+let parse_shdr_type reader buffer =
+  let module M = (val reader : Obuffer.Reader) in
+  let open Base.Result.Monad_infix in
+  M.u32 buffer >>= fun value ->
+  match Stdint.Uint32.to_int value with
+  | 0 -> Ok SHT_NULL
+  | 1 -> Ok SHT_PROGBITS
+  | 2 -> Ok SHT_SYMTAB
+  | 3 -> Ok SHT_STRTAB
+  | 4 -> Ok SHT_RELA
+  | 5 -> Ok SHT_HASH
+  | 6 -> Ok SHT_DYNAMIC
+  | 7 -> Ok SHT_NOTE
+  | 8 -> Ok SHT_NOBITS
+  | 9 -> Ok SHT_REL
+  | 10 -> Ok SHT_SHLIB
+  | 11 -> Ok SHT_DYNSYM
+  | 14 -> Ok SHT_INIT_ARRAY
+  | 15 -> Ok SHT_FINI_ARRAY
+  | 16 -> Ok SHT_PREINIT_ARRAY
+  | 17 -> Ok SHT_GROUP
+  | 18 -> Ok SHT_SYMTAB_SHNDX
+  | 0x6ffffff5 -> Ok SHT_GNU_ATTRIBUTES
+  | 0x6ffffff6 -> Ok SHT_GNU_HASH
+  | 0x6ffffff7 -> Ok SHT_GNU_LIBLIST
+  | 0x6ffffffd -> Ok SHT_GNU_VERDEF
+  | 0x6ffffffe -> Ok SHT_GNU_VERNEED
+  | 0x6fffffff -> Ok SHT_GNU_VERSYM
+  | x ->
+      if x >= 0x60000000 && x <= 0x6fffffff then Ok SHT_OS
+      else if x >= 0x70000000 && x <= 0x7fffffff then Ok SHT_PROC
+      else if x >= 0x80000000 && x <= 0xffffffff then Ok SHT_USER
+      else Error (Printf.sprintf "unknown section header type: 0x%04x" x)
+
+let parse_elf32_shdr reader buffer =
+  let open Base.Result.Monad_infix in
+  let module M = (val reader : Obuffer.Reader) in
+  M.u32 buffer >>= fun sh_name ->
+  parse_shdr_type reader buffer >>= fun sh_type ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun sh_flags ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun sh_addr ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun sh_offset ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun sh_size ->
+  M.u32 buffer >>= fun sh_link ->
+  M.u32 buffer >>= fun sh_info ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun sh_addralign ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun sh_entsize ->
+  Ok
+    {
+      sh_name;
+      sh_type;
+      sh_flags;
+      sh_addr;
+      sh_offset;
+      sh_size;
+      sh_link;
+      sh_info;
+      sh_addralign;
+      sh_entsize;
+    }
+
+let parse_elf64_shdr reader buffer =
+  let open Base.Result.Monad_infix in
+  let module M = (val reader : Obuffer.Reader) in
+  M.u32 buffer >>= fun sh_name ->
+  parse_shdr_type reader buffer >>= fun sh_type ->
+  M.u64 buffer >>= fun sh_flags ->
+  M.u64 buffer >>= fun sh_addr ->
+  M.u64 buffer >>= fun sh_offset ->
+  M.u64 buffer >>= fun sh_size ->
+  M.u32 buffer >>= fun sh_link ->
+  M.u32 buffer >>= fun sh_info ->
+  M.u64 buffer >>= fun sh_addralign ->
+  M.u64 buffer >>= fun sh_entsize ->
+  Ok
+    {
+      sh_name;
+      sh_type;
+      sh_flags;
+      sh_addr;
+      sh_offset;
+      sh_size;
+      sh_link;
+      sh_info;
+      sh_addralign;
+      sh_entsize;
+    }
+
+let skip_to_shdr_offset header buffer idx =
+  let index = Stdint.Uint64.of_int idx in
+  let shentsize = Stdint.Uint16.to_uint64 header.e_shentsize in
+  let mul = Stdint.Uint64.( * ) index shentsize in
+  let offset = Stdint.Uint64.( + ) header.e_shoff mul in
+  (* We convert the offset from uint64 to int, since the underlying BigArray
+     operates on int values *)
+  Obuffer.PlatformAgnosticReader.seek buffer (Stdint.Uint64.to_int offset)
+
+let parse_shdr info header buffer idx =
+  skip_to_shdr_offset header buffer idx;
+  let reader = fetch_reader_module info.ei_data in
+  match info.ei_class with
+  (* The width of fields differs between ELF32 and ELF64 files *)
+  | ELFCLASS32 -> parse_elf32_shdr reader buffer
+  | ELFCLASS64 -> parse_elf64_shdr reader buffer
+
+let fetch_section_count info header buffer =
+  if header.e_shoff = Stdint.Uint64.zero || header.e_shnum <> Stdint.Uint16.zero
+  then Ok (Stdint.Uint16.to_int header.e_shnum)
+  else
+    (* The section header count is encoded in the size field of the first
+       section header. *)
+    let open Base.Result.Monad_infix in
+    parse_shdr info header buffer 0 >>= fun shdr ->
+    Ok (Stdint.Uint64.to_int shdr.sh_size)
 
 (* XXX: Can this be replaced with a tail-recursive library function? *)
 let rec list_init n f =
@@ -773,6 +930,8 @@ let new_file filepath =
   read filepath >>= fun buffer ->
   parse_info buffer >>= fun info ->
   parse_header info buffer >>= fun header ->
-  let header_count = Stdint.Uint16.to_int header.e_phnum in
-  list_init header_count (parse_phdrs info header buffer) >>= fun phdrs ->
-  Ok (List.rev phdrs, header)
+  let phdr_count = Stdint.Uint16.to_int header.e_phnum in
+  list_init phdr_count (parse_phdr info header buffer) >>= fun phdrs ->
+  fetch_section_count info header buffer >>= fun shdr_count ->
+  list_init shdr_count (parse_shdr info header buffer) >>= fun shdrs ->
+  Ok (header, List.rev phdrs, List.rev shdrs)

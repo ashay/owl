@@ -1,0 +1,13 @@
+ehdr: !Ehdr
+  e_type:       ET_REL
+
+sections:
+
+ - !Section
+   sh_type: 19
+
+ - !Section
+   sh_type: SHT_STRTAB
+   sh_name: .shstrtab
+   sh_data:
+   - .shstrtab
