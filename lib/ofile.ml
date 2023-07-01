@@ -689,7 +689,16 @@ type phdr_type_ty =
   | PT_PHDR
   | PT_PROC
 
-type phdr_ty = { p_type : phdr_type_ty }
+type phdr_ty = {
+  p_type : phdr_type_ty;
+  p_offset : Stdint.uint64;
+  p_vaddr : Stdint.uint64;
+  p_paddr : Stdint.uint64;
+  p_filesz : Stdint.uint64;
+  p_memsz : Stdint.uint64;
+  p_flags : Stdint.uint32;
+  p_align : Stdint.uint64;
+}
 
 let parse_phdr_type reader buffer =
   let module M = (val reader : Obuffer.Reader) in
@@ -707,18 +716,48 @@ let parse_phdr_type reader buffer =
       if x >= 0x70000000 && x <= 0x7fffffff then Ok PT_PROC
       else Error (Printf.sprintf "unknown program header type: %04x" x)
 
-let parse_phdrs info header buffer idx =
-  let reader = fetch_reader_module info.ei_data in
-  let module M = (val reader : Obuffer.Reader) in
+let skip_to_phdr_offset header buffer idx =
   let index = Stdint.Uint64.of_int idx in
   let phentsize = Stdint.Uint16.to_uint64 header.e_phentsize in
   let mul = Stdint.Uint64.( * ) index phentsize in
   let offset = Stdint.Uint64.( + ) header.e_phoff mul in
   (* We convert the offset from uint64 to int, since the underlying BigArray
      operates on int values *)
-  Obuffer.PlatformAgnosticReader.seek buffer (Stdint.Uint64.to_int offset);
+  Obuffer.PlatformAgnosticReader.seek buffer (Stdint.Uint64.to_int offset)
+
+let parse_elf32_phdr reader buffer =
   let open Base.Result.Monad_infix in
-  parse_phdr_type reader buffer >>= fun p_type -> Ok { p_type }
+  let module M = (val reader : Obuffer.Reader) in
+  parse_phdr_type reader buffer >>= fun p_type ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun p_offset ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun p_vaddr ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun p_paddr ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun p_filesz ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun p_memsz ->
+  M.u32 buffer >>= fun p_flags ->
+  M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun p_align ->
+  Ok { p_type; p_offset; p_vaddr; p_paddr; p_filesz; p_memsz; p_flags; p_align }
+
+let parse_elf64_phdr reader buffer =
+  let open Base.Result.Monad_infix in
+  let module M = (val reader : Obuffer.Reader) in
+  parse_phdr_type reader buffer >>= fun p_type ->
+  M.u32 buffer >>= fun p_flags ->
+  M.u64 buffer >>= fun p_offset ->
+  M.u64 buffer >>= fun p_vaddr ->
+  M.u64 buffer >>= fun p_paddr ->
+  M.u64 buffer >>= fun p_filesz ->
+  M.u64 buffer >>= fun p_memsz ->
+  M.u64 buffer >>= fun p_align ->
+  Ok { p_type; p_offset; p_vaddr; p_paddr; p_filesz; p_memsz; p_flags; p_align }
+
+let parse_phdrs info header buffer idx =
+  skip_to_phdr_offset header buffer idx;
+  let reader = fetch_reader_module info.ei_data in
+  match info.ei_class with
+  (* The sequence of fields differs between ELF32 and ELF64 files *)
+  | ELFCLASS32 -> parse_elf32_phdr reader buffer
+  | ELFCLASS64 -> parse_elf64_phdr reader buffer
 
 (* XXX: Can this be replaced with a tail-recursive library function? *)
 let rec list_init n f =
@@ -736,4 +775,4 @@ let new_file filepath =
   parse_header info buffer >>= fun header ->
   let header_count = Stdint.Uint16.to_int header.e_phnum in
   list_init header_count (parse_phdrs info header buffer) >>= fun phdrs ->
-  Ok (phdrs, header)
+  Ok (List.rev phdrs, header)
