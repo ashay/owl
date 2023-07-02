@@ -547,20 +547,14 @@ let parse_header_field reader_module elf_class buffer =
   | ELFCLASS32 -> Result.map Stdint.Uint64.of_uint32 (M.u32 buffer)
   | ELFCLASS64 -> M.u64 buffer
 
-let parse_shnum reader_module buffer e_class e_shoff e_shentsize =
+let parse_shnum reader_module buffer e_shoff =
   let open Base.Result.Monad_infix in
   let module M = (val reader_module : Obuffer.Reader) in
   M.u16 buffer >>= fun e_shnum ->
-  let int_shnum = Stdint.Uint16.to_int e_shnum
-  and int_shentsize = Stdint.Uint16.to_int e_shentsize
-  and min_shentsize =
-    match e_class with ELFCLASS32 -> 10 * 4 | ELFCLASS64 -> (4 * 4) + (6 * 8)
-  in
+  let int_shnum = Stdint.Uint16.to_int e_shnum in
   (* We use Stdint.Uint64.compare since we can't safely convert it to int for comparison with zero *)
   if Stdint.Uint64.compare e_shoff Stdint.Uint64.zero = 0 && int_shnum <> 0 then
     Error (Printf.sprintf "invalid e_shnum %d for e_shoff=0" int_shnum)
-  else if int_shentsize < min_shentsize then
-    Error (Printf.sprintf "invalid e_shentsize: %d" int_shentsize)
   else Ok e_shnum
 
 let parse_shstrndx reader_module buffer e_shnum =
@@ -634,7 +628,7 @@ let parse_header info buffer =
   M.u16 buffer >>= fun e_phentsize ->
   parse_phnum reader e_class buffer e_phentsize >>= fun e_phnum ->
   M.u16 buffer >>= fun e_shentsize ->
-  parse_shnum reader buffer e_class e_shoff e_shentsize >>= fun e_shnum ->
+  parse_shnum reader buffer e_shoff >>= fun e_shnum ->
   parse_shstrndx reader buffer e_shnum >>= fun e_shstrndx ->
   if e_version = info.ei_version then
     Ok
@@ -974,13 +968,25 @@ let rec list_init n f =
     | _, Error e -> Error e
     | Error e, _ -> Error e
 
+let validate_shentsize info shdr_count e_shentsize =
+  let min_shentsize =
+    match info.ei_class with
+    | ELFCLASS32 -> Stdint.Uint16.of_int (10 * 4)
+    | ELFCLASS64 -> Stdint.Uint16.of_int ((4 * 4) + (6 * 8))
+  in
+  if shdr_count > 0 && Stdint.Uint16.compare e_shentsize min_shentsize < 0 then
+    let int_shentsize = Stdint.Uint16.to_int e_shentsize in
+    Error (Printf.sprintf "invalid e_shentsize: %d" int_shentsize)
+  else Ok ()
+
 let new_file filepath =
   let open Base.Result.Monad_infix in
   read filepath >>= fun buffer ->
   parse_info buffer >>= fun info ->
   parse_header info buffer >>= fun header ->
+  fetch_section_count info header buffer >>= fun shdr_count ->
+  validate_shentsize info shdr_count header.e_shentsize >>= fun _ ->
   let phdr_count = Stdint.Uint16.to_int header.e_phnum in
   list_init phdr_count (parse_phdr info header buffer) >>= fun phdrs ->
-  fetch_section_count info header buffer >>= fun shdr_count ->
   list_init shdr_count (parse_shdr info header buffer) >>= fun shdrs ->
   Ok (header, List.rev phdrs, List.rev shdrs)

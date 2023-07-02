@@ -1,0 +1,17 @@
+ehdr: !Ehdr
+  e_ident: !Ident
+    ei_class:     ELFCLASS64
+  e_type: ET_REL
+  e_shstrndx: 65537
+  e_shentsize:  63
+
+sections:
+ - !Section # index 0
+   sh_type: SHT_NULL
+
+ - !Section
+   sh_type: SHT_STRTAB
+   sh_index: 65537
+   sh_name: .shstrtab
+   sh_data:
+   - .shstrtab
