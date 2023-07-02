@@ -45,6 +45,14 @@ let negative_tests =
       error_message = "invalid e_shentsize: 63";
     };
     {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shentsize-2.yaml";
+      error_message = "invalid e_shentsize: 39";
+    };
+    {
+      yaml_path = "test-files/invalid-elf-descriptions/invalid-shentsize-3.yaml";
+      error_message = "invalid e_shentsize: 63";
+    };
+    {
       yaml_path = "test-files/invalid-elf-descriptions/invalid-shnum-0.yaml";
       error_message = "invalid e_shnum 3598 for e_shoff=0";
     };
