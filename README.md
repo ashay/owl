@@ -28,12 +28,6 @@ location information with instruction addresses, etc.
  - Supports both little- and big-endian encoding
 
 
-## TODO ##
-
- - Add code to parse section and program headers
- - Setup CI to run test suite
-
-
 ## Acknowledgements ##
 
  - [let-def/owee](https://github.com/let-def/owee): Owee is an excellent
