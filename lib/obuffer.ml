@@ -40,6 +40,24 @@ module PlatformAgnosticReader = struct
     done;
     advance t length;
     Ok (Bytes.unsafe_to_string result)
+
+  let rec find_null t max count =
+    if count >= max then
+      let msg =
+        Printf.sprintf
+          "failed to find null termination at offset %d with bound %d" t.index
+          max
+      in
+      Error msg
+    else if t.byte_array.{t.index + count} = 0 then Ok count
+    else find_null t max (count + 1)
+
+  let null_terminated_string t max =
+    let open Base.Result.Monad_infix in
+    find_null t max 0 >>= fun null_idx ->
+    fixed_length_string t null_idx >>= fun result ->
+    advance t 1;
+    Ok result
 end
 
 (* Module signature for little- and big-endian readers *)

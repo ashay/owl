@@ -13,6 +13,7 @@ module PlatformAgnosticReader : sig
   val validate_read : buffer_ty -> int -> (buffer_ty, string) result
   val u8 : buffer_ty -> (Stdint.uint8, string) result
   val fixed_length_string : buffer_ty -> int -> (string, string) result
+  val null_terminated_string : buffer_ty -> int -> (string, string) result
 end
 
 (* Module signature for little- and big-endian readers *)
