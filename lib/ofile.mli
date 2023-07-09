@@ -263,7 +263,7 @@ type phdr_ty = {
   p_align : Stdint.uint64;
 }
 
-type shdr_type_ty =
+type section_type_ty =
   | SHT_NULL
   | SHT_PROGBITS
   | SHT_SYMTAB
@@ -292,18 +292,18 @@ type shdr_type_ty =
   | SHT_PROC
   | SHT_USER
 
-type shdr_ty = {
-  sh_name : Stdint.uint32;
-  sh_type : shdr_type_ty;
-  sh_flags : Stdint.uint64;
-  sh_addr : Stdint.uint64;
-  sh_offset : Stdint.uint64;
-  sh_size : Stdint.uint64;
-  sh_link : Stdint.uint32;
-  sh_info : Stdint.uint32;
-  sh_addralign : Stdint.uint64;
-  sh_entsize : Stdint.uint64;
+type section_ty = {
+  name : string;
+  section_type : section_type_ty;
+  flags : Stdint.uint64;
+  addr : Stdint.uint64;
+  offset : Stdint.uint64;
+  size : Stdint.uint64;
+  link : Stdint.uint32;
+  info : Stdint.uint32;
+  addralign : Stdint.uint64;
+  entsize : Stdint.uint64;
 }
 
 val new_file :
-  string -> (elf_header_ty * phdr_ty list * shdr_ty list, string) result
+  string -> (elf_header_ty * phdr_ty list * section_ty list, string) result

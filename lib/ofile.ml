@@ -734,7 +734,18 @@ let parse_elf32_phdr reader buffer =
   M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun p_memsz ->
   M.u32 buffer >>= fun p_flags ->
   M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun p_align ->
-  Ok { p_type; p_offset; p_vaddr; p_paddr; p_filesz; p_memsz; p_flags; p_align }
+  Ok
+    (Some
+       {
+         p_type;
+         p_offset;
+         p_vaddr;
+         p_paddr;
+         p_filesz;
+         p_memsz;
+         p_flags;
+         p_align;
+       })
 
 let parse_elf64_phdr reader buffer =
   let open Base.Result.Monad_infix in
@@ -747,7 +758,18 @@ let parse_elf64_phdr reader buffer =
   M.u64 buffer >>= fun p_filesz ->
   M.u64 buffer >>= fun p_memsz ->
   M.u64 buffer >>= fun p_align ->
-  Ok { p_type; p_offset; p_vaddr; p_paddr; p_filesz; p_memsz; p_flags; p_align }
+  Ok
+    (Some
+       {
+         p_type;
+         p_offset;
+         p_vaddr;
+         p_paddr;
+         p_filesz;
+         p_memsz;
+         p_flags;
+         p_align;
+       })
 
 let parse_phdr info header buffer idx =
   skip_to_phdr_offset header buffer idx;
@@ -757,7 +779,7 @@ let parse_phdr info header buffer idx =
   | ELFCLASS32 -> parse_elf32_phdr reader buffer
   | ELFCLASS64 -> parse_elf64_phdr reader buffer
 
-type shdr_type_ty =
+type section_type_ty =
   | SHT_NULL
   | SHT_PROGBITS
   | SHT_SYMTAB
@@ -818,7 +840,7 @@ let sh_type_to_string sh_type =
 
 type shdr_ty = {
   sh_name : Stdint.uint32;
-  sh_type : shdr_type_ty;
+  sh_type : section_type_ty;
   sh_flags : Stdint.uint64;
   sh_addr : Stdint.uint64;
   sh_offset : Stdint.uint64;
@@ -877,18 +899,19 @@ let parse_elf32_shdr reader buffer =
   M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun sh_addralign ->
   M.u32 buffer >>| Stdint.Uint32.to_uint64 >>= fun sh_entsize ->
   Ok
-    {
-      sh_name;
-      sh_type;
-      sh_flags;
-      sh_addr;
-      sh_offset;
-      sh_size;
-      sh_link;
-      sh_info;
-      sh_addralign;
-      sh_entsize;
-    }
+    (Some
+       {
+         sh_name;
+         sh_type;
+         sh_flags;
+         sh_addr;
+         sh_offset;
+         sh_size;
+         sh_link;
+         sh_info;
+         sh_addralign;
+         sh_entsize;
+       })
 
 let parse_elf64_shdr reader buffer =
   let open Base.Result.Monad_infix in
@@ -904,18 +927,19 @@ let parse_elf64_shdr reader buffer =
   M.u64 buffer >>= fun sh_addralign ->
   M.u64 buffer >>= fun sh_entsize ->
   Ok
-    {
-      sh_name;
-      sh_type;
-      sh_flags;
-      sh_addr;
-      sh_offset;
-      sh_size;
-      sh_link;
-      sh_info;
-      sh_addralign;
-      sh_entsize;
-    }
+    (Some
+       {
+         sh_name;
+         sh_type;
+         sh_flags;
+         sh_addr;
+         sh_offset;
+         sh_size;
+         sh_link;
+         sh_info;
+         sh_addralign;
+         sh_entsize;
+       })
 
 let skip_to_shdr_offset header buffer idx =
   let index = Stdint.Uint64.of_int idx in
@@ -940,15 +964,13 @@ let fetch_extended_section_count first_shdr =
   if int_shnum < shn_loreserve then
     Error
       (Printf.sprintf "invalid ELF shnum 0x%x contained in sh_size" int_shnum)
+  else if first_shdr.sh_type = SHT_NULL then Ok int_shnum
   else
-    match first_shdr.sh_type with
-    | SHT_NULL -> Ok int_shnum
-    | _ ->
-        let section_type = sh_type_to_string first_shdr.sh_type in
-        let msg =
-          Printf.sprintf "invalid type of the initial section: %s" section_type
-        in
-        Error msg
+    let section_type = sh_type_to_string first_shdr.sh_type in
+    let msg =
+      Printf.sprintf "invalid type of the initial section: %s" section_type
+    in
+    Error msg
 
 let fetch_section_count info header buffer =
   if header.e_shoff = Stdint.Uint64.zero || header.e_shnum <> Stdint.Uint16.zero
@@ -956,17 +978,39 @@ let fetch_section_count info header buffer =
   else
     (* The section header count is encoded in the size field of the first
        section header. *)
-    let open Base.Result.Monad_infix in
-    parse_shdr info header buffer 0 >>= fetch_extended_section_count
+    match parse_shdr info header buffer 0 with
+    | Ok None -> Error "failed to find first section header"
+    | Ok (Some shdr) -> fetch_extended_section_count shdr
+    | Error msg -> Error msg
+
+let fetch_string_table_index info header buffer =
+  let shn_xindex = Stdint.Uint16.of_int 0xffff in
+  if
+    header.e_shoff = Stdint.Uint64.zero
+    || header.e_shnum <> Stdint.Uint16.zero
+    || Stdint.Uint16.compare header.e_shstrndx shn_xindex = 0
+  then Ok (Stdint.Uint16.to_int header.e_shstrndx)
+  else
+    (* The string table index is encoded in the link field of the first section
+       header. *)
+    match parse_shdr info header buffer 0 with
+    | Ok None -> Error "failed to find first section header"
+    | Ok (Some shdr) -> Ok (Stdint.Uint32.to_int shdr.sh_link)
+    | Error msg -> Error msg
 
 (* XXX: Can this be replaced with a tail-recursive library function? *)
-let rec list_init n f =
-  if n = 0 then Ok []
-  else
-    match (f (n - 1), list_init (n - 1) f) with
-    | Ok v, Ok l -> Ok (v :: l)
-    | _, Error e -> Error e
-    | Error e, _ -> Error e
+let list_init n f =
+  let rec aux n f =
+    if n = 0 then Ok []
+    else
+      match (f (n - 1), aux (n - 1) f) with
+      | Ok None, Ok l -> Ok l
+      | Ok (Some v), Ok l -> Ok (v :: l)
+      | _, Error e -> Error e
+      | Error e, _ -> Error e
+  in
+  let open Base.Result.Monad_infix in
+  aux n f >>= fun l -> Ok (List.rev l)
 
 let validate_shentsize info shdr_count e_shentsize =
   let min_shentsize =
@@ -979,14 +1023,78 @@ let validate_shentsize info shdr_count e_shentsize =
     Error (Printf.sprintf "invalid e_shentsize: %d" int_shentsize)
   else Ok ()
 
+let parse_program_headers info header buffer =
+  let open Base.Result.Monad_infix in
+  let phdr_count = Stdint.Uint16.to_int header.e_phnum in
+  list_init phdr_count (parse_phdr info header buffer) >>= fun rev_phdrs ->
+  Ok (List.rev rev_phdrs)
+
+type section_ty = {
+  name : string;
+  section_type : section_type_ty;
+  flags : Stdint.uint64;
+  addr : Stdint.uint64;
+  offset : Stdint.uint64;
+  size : Stdint.uint64;
+  link : Stdint.uint32;
+  info : Stdint.uint32;
+  addralign : Stdint.uint64;
+  entsize : Stdint.uint64;
+}
+
+let fetch_string buffer offset max_size =
+  let int_offset = Stdint.Uint64.to_int offset in
+  Obuffer.PlatformAgnosticReader.seek buffer int_offset;
+  Obuffer.PlatformAgnosticReader.null_terminated_string buffer max_size
+
+let derive_section_from_shdr shdr =
+  {
+    name = "";
+    section_type = shdr.sh_type;
+    flags = shdr.sh_flags;
+    addr = shdr.sh_addr;
+    offset = shdr.sh_offset;
+    size = shdr.sh_size;
+    link = shdr.sh_link;
+    info = shdr.sh_info;
+    addralign = shdr.sh_addralign;
+    entsize = shdr.sh_entsize;
+  }
+
+let fetch_section_name string_header shdr buffer =
+  let name_offset = Stdint.Uint32.to_uint64 shdr.sh_name in
+  let offset = Stdint.Uint64.( + ) name_offset string_header.sh_offset in
+  let max_length = Stdint.Uint64.( - ) string_header.sh_size name_offset in
+  fetch_string buffer offset (Stdint.Uint64.to_int max_length)
+
+let construct_section buffer shdrs shstrndx shdr =
+  if shdr.sh_type = SHT_NULL then Ok None
+  else
+    match List.nth_opt shdrs shstrndx with
+    | None -> Ok (Some (derive_section_from_shdr shdr))
+    | Some string_header ->
+        if Stdint.Uint64.compare string_header.sh_size Stdint.Uint64.zero = 0
+        then Ok (Some (derive_section_from_shdr shdr))
+        else
+          let open Base.Result.Monad_infix in
+          let section = derive_section_from_shdr shdr in
+          fetch_section_name string_header shdr buffer >>= fun name ->
+          Ok (Some { section with name })
+
+let construct_section buffer shdrs shstrndx shdr_idx =
+  match List.nth_opt shdrs shdr_idx with
+  | None -> Error (Printf.sprintf "out-of-bounds header idx %d" shdr_idx)
+  | Some shdr -> construct_section buffer shdrs shstrndx shdr
+
 let new_file filepath =
   let open Base.Result.Monad_infix in
   read filepath >>= fun buffer ->
   parse_info buffer >>= fun info ->
   parse_header info buffer >>= fun header ->
+  parse_program_headers info header buffer >>= fun phdrs ->
   fetch_section_count info header buffer >>= fun shdr_count ->
   validate_shentsize info shdr_count header.e_shentsize >>= fun _ ->
-  let phdr_count = Stdint.Uint16.to_int header.e_phnum in
-  list_init phdr_count (parse_phdr info header buffer) >>= fun phdrs ->
   list_init shdr_count (parse_shdr info header buffer) >>= fun shdrs ->
-  Ok (header, List.rev phdrs, List.rev shdrs)
+  fetch_string_table_index info header buffer >>= fun shstrndx ->
+  list_init (List.length shdrs) (construct_section buffer shdrs shstrndx)
+  >>= fun sections -> Ok (header, phdrs, sections)
